@@ -2,20 +2,32 @@ package com.github.schnupperstudium.robots.client.ai.hidden;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
 import com.github.schnupperstudium.robots.entity.Facing;
+import com.github.schnupperstudium.robots.entity.item.BlueKey;
+import com.github.schnupperstudium.robots.entity.item.Cookie;
+import com.github.schnupperstudium.robots.entity.item.GreenKey;
+import com.github.schnupperstudium.robots.entity.item.LaserCharge;
+import com.github.schnupperstudium.robots.entity.item.RedKey;
 import com.github.schnupperstudium.robots.entity.item.Star;
+import com.github.schnupperstudium.robots.entity.item.YellowKey;
 import com.github.schnupperstudium.robots.world.Map;
 import com.github.schnupperstudium.robots.world.Material;
 import com.github.schnupperstudium.robots.world.Tile;
 
 public class DistanceScalingMap implements Map {
 	
-	private static final int STAR_VALUE = 1;
-	private static final int UNDEFINED_VALUE = 100;
+	private static final java.util.Map<Class<?>, Integer> ITEM_VALUES = new HashMap<>();
+	
+	private static final int COOKIE_VALUE = 1;
+	private static final int KEY_VALUE = 10;
+	private static final int CHARGE_VALUE = 5;
+	private static final int STAR_VALUE = 100;
+	private static final int UNDEFINED_VALUE = STAR_VALUE * 100;
 	
 	private Tile[][] mapTiles;
 	private int[][] values;
@@ -26,6 +38,16 @@ public class DistanceScalingMap implements Map {
 	private int minY;
 	private int maxX;
 	private int maxY;
+	
+	static {
+		ITEM_VALUES.put(Cookie.class, COOKIE_VALUE);
+		ITEM_VALUES.put(BlueKey.class, KEY_VALUE);
+		ITEM_VALUES.put(GreenKey.class, KEY_VALUE);
+		ITEM_VALUES.put(RedKey.class, KEY_VALUE);
+		ITEM_VALUES.put(YellowKey.class, KEY_VALUE);
+		ITEM_VALUES.put(LaserCharge.class, CHARGE_VALUE);
+		ITEM_VALUES.put(Star.class, STAR_VALUE);
+	}
 	
 	public DistanceScalingMap() {
 		this.width = 0;
