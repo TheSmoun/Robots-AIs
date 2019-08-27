@@ -22,7 +22,6 @@ import com.github.schnupperstudium.robots.ai.action.EntityAction;
 import com.github.schnupperstudium.robots.client.AbstractAI;
 import com.github.schnupperstudium.robots.client.RobotsClient;
 import com.github.schnupperstudium.robots.entity.Facing;
-import com.github.schnupperstudium.robots.entity.item.Star;
 import com.github.schnupperstudium.robots.world.Tile;
 
 /**
@@ -63,7 +62,7 @@ public final class DistanceAI extends AbstractAI {
 	
 	@Override
 	public EntityAction makeTurn() {
-		if (this.hasStar(this.getBeneathTile()))
+		if (this.getBeneathTile().hasItem())
 			return EntityAction.pickUpItem();
 		
 		this.map.updateMap(this.getVision());
@@ -74,10 +73,6 @@ public final class DistanceAI extends AbstractAI {
 			return this.convertToActions(target);
 		
 		return EntityAction.noAction();
-	}
-	
-	private boolean hasStar(final Tile tile) {
-		return tile.hasItem() && tile.getItem() instanceof Star;
 	}
 	
 	private EntityAction convertToActions(final Tile target) {

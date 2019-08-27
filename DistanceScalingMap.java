@@ -214,8 +214,8 @@ public final class DistanceScalingMap implements Map {
 		for (int i = 0; i < this.tiles.length; i++) {
 			for (int j = 0; j < this.tiles[i].length; j++) {
 				final MapTile tile = this.tiles[i][j];
-				if (tile.hasItem() && tile.getItem() instanceof Star) {
-					tile.value = STAR_VALUE;
+				if (tile.hasItem()) {
+					tile.value = ITEM_VALUES.get(tile.getItem().getClass());
 					queue.add(tile);
 				} else if (tile.getMaterial() == Material.UNDEFINED) {
 					tile.value = UNDEFINED_VALUE;
