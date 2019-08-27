@@ -426,5 +426,12 @@ public class DistanceScalingMap implements Map {
 			this.setVisitor(tile.getVisitor());
 			this.setItem(tile.getItem());
 		}
+
+		@Override
+		public String toString() {
+			return "MapTile [value=" + value + "x=" + this.getX() + ", y=" + this.getY() +
+					", material=" + this.getMaterial() + ", visitor=" + this.getVisitor() +
+					", item=" + this.getItem() + "]";
+		}
 	}
 }
