@@ -47,8 +47,7 @@ public class DistanceScalingMap implements Map {
 	private static final int STAR_VALUE = 100;
 	private static final int UNDEFINED_VALUE = STAR_VALUE * 100;
 	
-	private Tile[][] mapTiles;
-	private int[][] values;
+	private MapTile[][] mapTiles;
 	private int width;
 	private int height;
 	
@@ -74,11 +73,10 @@ public class DistanceScalingMap implements Map {
 		this.maxX = Integer.MIN_VALUE;
 		this.minY = Integer.MAX_VALUE;
 		this.maxY = Integer.MIN_VALUE;
-		this.mapTiles = new Tile[width][height];
-		this.values = new int[width][height];
-		for (int x = 0; x < width; x++) {
-			for (int y = 0; y < height; y++) {
-				this.mapTiles[x][y] = new Tile(null, x, y, Material.UNDEFINED);
+		this.mapTiles = new MapTile[this.width][this.height];
+		for (int x = 0; x < this.width; x++) {
+			for (int y = 0; y < this.height; y++) {
+				this.mapTiles[x][y] = new MapTile(x, y);
 			}
 		}
 	}
@@ -92,32 +90,28 @@ public class DistanceScalingMap implements Map {
 		final int vMaxX = tiles.stream().mapToInt(Tile::getX).max().getAsInt();
 		final int vMaxY = tiles.stream().mapToInt(Tile::getY).max().getAsInt();
 		
-		if (!isWithinMap(vMinX, vMinY) || !isWithinMap(vMaxX, vMaxY)) 
-			resizeMap(Math.min(this.minX, vMinX), Math.min(this.minY, vMinY), Math.max(this.maxX, vMaxX + 1), Math.max(this.maxY, vMaxY + 1));
+		if (!this.isWithinMap(vMinX, vMinY) || !this.isWithinMap(vMaxX, vMaxY)) 
+			this.resize(Math.min(this.minX, vMinX), Math.min(this.minY, vMinY), Math.max(this.maxX, vMaxX + 1), Math.max(this.maxY, vMaxY + 1));
 		
 		tiles.forEach(this::updateTile);
-		
 	}
 	
-	private void resizeMap(int nMinX, int nMinY, int nMaxX, int nMaxY) {
+	private void resize(int nMinX, int nMinY, int nMaxX, int nMaxY) {
 		int nWidth = nMaxX - nMinX;
 		int nHeight = nMaxY - nMinY;
-		Tile[][] nTiles = new Tile[nWidth][nHeight];
-		int[][] nValues = new int[nWidth][nHeight];
+		MapTile[][] nTiles = new MapTile[nWidth][nHeight];
 		for (int i = 0; i < nWidth; i++) {
 			int x = i + nMinX;
 			for (int j = 0; j < nHeight; j++) {
 				int y = j + nMinY;
 				if (isWithinMap(x, y)) {
-					nTiles[i][j] = mapTiles[x - minX][y - minY];
-					nValues[i][j] = values[x - minX][y - minY];
+					nTiles[i][j] = this.mapTiles[x - this.minX][y - this.minY];
 				} else
-					nTiles[i][j] = new Tile(null, x, y, Material.UNDEFINED);
+					nTiles[i][j] = new MapTile(x, y);
 			}
 		}
 		
 		this.mapTiles = nTiles;
-		this.values = nValues;
 		this.minX = nMinX;
 		this.minY = nMinY;
 		this.maxX = nMaxX;
@@ -126,86 +120,86 @@ public class DistanceScalingMap implements Map {
 		this.height = nHeight;
 	}
 	
-	private void updateTile(Tile tile) {
-		int x = tile.getX();
-		int y = tile.getY();
-		
-		Tile mapTile = mapTiles[x - minX][y - minY];
-		mapTile.setMaterial(tile.getMaterial());
-		mapTile.setVisitor(tile.getVisitor());
-		mapTile.setItem(tile.getItem());
+	private void updateTile(final Tile tile) {
+		final int x = tile.getX();
+		final int y = tile.getY();
+		this.mapTiles[x - this.minX][y - this.minY].update(tile);
 	}
 	
 	@Override
 	public int getWidth() {
-		return width;
+		return this.width;
 	}
 
 	@Override
 	public int getHeight() {
-		return height;
+		return this.height;
 	}
 
 	@Override
-	public Tile getTile(int x, int y) {
-		if (isWithinMap(x, y))
-			return mapTiles[x - minX][y - minY];
+	public MapTile getTile(final int x, final int y) {
+		if (this.isWithinMap(x, y))
+			return this.mapTiles[x - this.minX][y - this.minY];
 		else
-			return new Tile(null, x, y, Material.UNDEFINED);
+			return new MapTile(x, y);
 	}
 	
-	public int getValue(Tile tile) {
-		return getValue(tile.getX(), tile.getY());
+	public int getValue(final Tile tile) {
+		return this.getValue(tile.getX(), tile.getY());
 	}
 	
-	public int getValue(int x, int y) {
-		if (isWithinMap(x, y))
-			return values[x - minX][y - minY];
-		else
-			return UNDEFINED_VALUE;
+	public int getValue(final int x, final int y) {
+		return this.getTile(x, y).value;
 	}
 	
-	public void setValue(Tile tile, int v) {
-		setValue(tile.getX(), tile.getY(), v);
+	public void setValue(final Tile tile, final int v) {
+		this.setValue(tile.getX(), tile.getY(), v);
 	}
 	
 	public void setValue(int x, int y, int v) {
-		if (isWithinMap(x, y))
-			values[x - minX][y - minY] = v;
+		this.getTile(x, y).value = v;
+	}
+	
+	public void clearValues() {
+		for (int i = 0; i < this.mapTiles.length; i++) {
+			for (int j = 0; j < this.mapTiles[i].length; j++) {
+				this.mapTiles[i][j].value = 0;
+			}
+		}
 	}
 	
 	@Override
 	public int getMinX() {
-		return minX;
+		return this.minX;
 	}
 	
 	@Override
 	public int getMaxX() {
-		return maxX;
+		return this.maxX;
 	}
 	
 	@Override
 	public int getMinY() {
-		return minY;
+		return this.minY;
 	}
 	
 	@Override
 	public int getMaxY() {
-		return maxY;
+		return this.maxY;
 	}
 	
-	public boolean isWithinMap(int x, int y) {
-		return x >= minX && x < maxX && y >= minY && y < maxY;
+	public boolean isWithinMap(final int x, final int y) {
+		return x >= this.minX && x < this.maxX && y >= this.minY && y < this.maxY;
 	}
 	
-	public Tile getNextTile(Tile beneathTile) {
-		this.values = new int[width][height];
+	public Tile getNextTile(final Tile beneathTile) {
+		this.clearValues();
 		setValue(beneathTile, Integer.MAX_VALUE);
 		
 		final Queue<Tile> queue = new LinkedList<>();
-		for (int i = 0; i < mapTiles.length; i++) {
-			for (int j = 0; j < mapTiles[i].length; j++) {
-				final Tile tile = mapTiles[i][j];
+		for (int i = 0; i < this.mapTiles.length; i++) {
+			for (int j = 0; j < this.mapTiles[i].length; j++) {
+				final Tile tile = this.mapTiles[i][j];
 				if (tile.hasItem() && tile.getItem() instanceof Star) {
 					setValue(tile, STAR_VALUE);
 					queue.add(tile);
@@ -284,5 +278,54 @@ public class DistanceScalingMap implements Map {
 		}
 		
 		return result;
+	}
+	
+	/**
+	 * Represents a {@link Tile} with the addition of weights that is
+	 * being used internally in the path finding algorithm to move the
+	 * robot across the map.
+	 * 
+	 * @author Simon Grossmann
+	 * @since 27 Aug 2019
+	 */
+	private static final class MapTile extends Tile {
+		
+		/**
+		 * The value of the {@link MapTile tile}. This value is used as weight for
+		 * this tile.
+		 */
+		public int value;
+		
+		/**
+		 * Creates a new undefined {@link MapTile tile} to represent
+		 * the given position.
+		 * 
+		 * @param x The x coordinate of the tile.
+		 * @param y The y coordinate of the tile.
+		 */
+		public MapTile(final int x, final int y) {
+			super(null, x, y, Material.UNDEFINED);
+			this.value = UNDEFINED_VALUE;
+		}
+		
+		/**
+		 * Updates the properties of this {@link MapTile tile}
+		 * to mirror the given {@link Tile tile} on the map.
+		 * <br>
+		 * This updates only properties necessary for the path finding,
+		 * which are the following:
+		 * <ul>
+		 * <li>the material of the tile</li>
+		 * <li>whether there is a visitor which would block the tile</li>
+		 * <li>the item on the tile</li>
+		 * </ul>
+		 * 
+		 * @param tile The tile on the map.
+		 */
+		public void update(final Tile tile) {
+			this.setMaterial(tile.getMaterial());
+			this.setVisitor(tile.getVisitor());
+			this.setItem(tile.getItem());
+		}
 	}
 }
