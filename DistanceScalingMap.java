@@ -234,7 +234,7 @@ public final class DistanceScalingMap implements Map {
 				continue;
 			
 			for (final Facing facing : Facing.values()) {
-				final MapTile neighbor = getNeighborTile(tile, facing);
+				final MapTile neighbor = this.getNeighborTile(tile, facing);
 				if (!neighbor.canVisit())
 					continue;
 				
@@ -257,7 +257,7 @@ public final class DistanceScalingMap implements Map {
 		final LinkedList<Tile> path = new LinkedList<>();
 		MapTile tile = this.getTile(x, y);
 		do {
-			tile = getNeighbors(tile).stream().min((t1, t2) -> {
+			tile = this.getNeighbors(tile).stream().min((t1, t2) -> {
 				return Integer.compare(t1.value, t2.value);
 			}).orElse(null);
 			if (tile != null) {
@@ -277,7 +277,7 @@ public final class DistanceScalingMap implements Map {
 	}
 	
 	private MapTile getNeighborTile(final Tile source, final Facing facing) {
-		return getTile(source.getX() + facing.dx, source.getY() + facing.dy);
+		return this.getTile(source.getX() + facing.dx, source.getY() + facing.dy);
 	}
 	
 	private Collection<MapTile> getNeighbors(final MapTile tile) {
@@ -289,7 +289,7 @@ public final class DistanceScalingMap implements Map {
 		
 		final List<MapTile> result = new ArrayList<>();
 		for (final Facing facing : Facing.values()) {
-			final MapTile neighbor = getNeighborTile(tile, facing);
+			final MapTile neighbor = this.getNeighborTile(tile, facing);
 			final int neighborValue = neighbor.value;
 			if (neighborValue > 0 && neighborValue < tile.value)
 				result.add(neighbor);
@@ -368,7 +368,7 @@ public final class DistanceScalingMap implements Map {
 
 		@Override
 		public String toString() {
-			return "Bounds [x=" + x + ", y=" + y + "]";
+			return "Bounds [x=" + this.x + ", y=" + this.y + "]";
 		}
 	}
 	
@@ -429,7 +429,7 @@ public final class DistanceScalingMap implements Map {
 
 		@Override
 		public String toString() {
-			return "Range [min=" + min + ", max=" + max + "]";
+			return "Range [min=" + this.min + ", max=" + this.max + "]";
 		}
 	}
 	
@@ -483,7 +483,7 @@ public final class DistanceScalingMap implements Map {
 
 		@Override
 		public String toString() {
-			return "MapTile [value=" + value + "x=" + this.getX() + ", y=" + this.getY() +
+			return "MapTile [value=" + this.value + "x=" + this.getX() + ", y=" + this.getY() +
 					", material=" + this.getMaterial() + ", visitor=" + this.getVisitor() +
 					", item=" + this.getItem() + "]";
 		}

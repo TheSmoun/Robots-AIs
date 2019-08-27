@@ -58,20 +58,20 @@ public final class DistanceAI extends AbstractAI {
 		
 		// initialize and open the map view
 		this.map = new DistanceScalingMap();
-		openMapView();
+		this.openMapView();
 	}
 	
 	@Override
 	public EntityAction makeTurn() {
-		if (hasStar(getBeneathTile()))
+		if (this.hasStar(this.getBeneathTile()))
 			return EntityAction.pickUpItem();
 		
-		this.map.updateMap(getVision());
-		updateMap(this.map);
+		this.map.updateMap(this.getVision());
+		this.updateMap(this.map);
 		
-		final Tile target = this.map.getNextTile(getX(), getY());
+		final Tile target = this.map.getNextTile(this.getX(), this.getY());
 		if (target != null)
-			return convertToActions(target);
+			return this.convertToActions(target);
 		
 		return EntityAction.noAction();
 	}
@@ -81,22 +81,20 @@ public final class DistanceAI extends AbstractAI {
 	}
 	
 	private EntityAction convertToActions(final Tile target) {
-		if (target.getX() == getBeneathTile().getX() && target.getY() == getBeneathTile().getY()
-				|| Math.abs(target.getX() - getBeneathTile().getX()) > 1
-				|| Math.abs(target.getY() - getBeneathTile().getY()) > 1)
+		if (target.getX() == this.getX() && target.getY() == this.getY()
+				|| Math.abs(target.getX() - this.getX()) > 1
+				|| Math.abs(target.getY() - this.getY()) > 1)
 			return EntityAction.noAction();
 		
-		Facing currentFacing = getFacing();
-		final Facing targetFacing = getFacing(target);
+		final Facing currentFacing = this.getFacing();
+		final Facing targetFacing = this.getFacing(target);
 		if (targetFacing == currentFacing.left()) {
 			return EntityAction.turnLeft();
 		} else if (currentFacing != targetFacing) {
 			return EntityAction.turnRight();
 		}
 		
-		final int x = getBeneathTile().getX();
-		final int y = getBeneathTile().getY();
-		if (target.getX() != x || target.getY() != y) {
+		if (target.getX() != this.getX() || target.getY() != this.getY()) {
 			return EntityAction.moveForward();
 		}
 		
@@ -104,8 +102,8 @@ public final class DistanceAI extends AbstractAI {
 	}
 	
 	private Facing getFacing(final Tile target) {
-		final int dx = target.getX() - getBeneathTile().getX();
-		final int dy = target.getY() - getBeneathTile().getY();
+		final int dx = target.getX() - this.getX();
+		final int dy = target.getY() - this.getY();
 		return Facing.of(dx, dy);
 	}
 }
