@@ -69,7 +69,7 @@ public final class DistanceAI extends AbstractAI {
 		this.map.updateMap(getVision());
 		updateMap(this.map);
 		
-		final Tile target = this.map.getNextTile(getBeneathTile());
+		final Tile target = this.map.getNextTile(getX(), getY());
 		if (target != null)
 			return convertToActions(target);
 		

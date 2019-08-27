@@ -26,6 +26,8 @@ import java.util.List;
 import java.util.Queue;
 
 import com.github.schnupperstudium.robots.entity.Facing;
+import com.github.schnupperstudium.robots.entity.Item;
+import com.github.schnupperstudium.robots.entity.Robot;
 import com.github.schnupperstudium.robots.entity.item.BlueKey;
 import com.github.schnupperstudium.robots.entity.item.Cookie;
 import com.github.schnupperstudium.robots.entity.item.GreenKey;
@@ -37,19 +39,71 @@ import com.github.schnupperstudium.robots.world.Map;
 import com.github.schnupperstudium.robots.world.Material;
 import com.github.schnupperstudium.robots.world.Tile;
 
-public class DistanceScalingMap implements Map {
+/**
+ * A scalable {@link Map} implementation that only stores all known {@link Tile tiles}.
+ * This map can be used to find efficient paths through the {@link World}.
+ * <br><br>
+ * Internally this map holds a two-dimensional array of all known tiles in the world,
+ * which can be updated using {@link #updateMap(List)} where you can pass the current
+ * vision of the {@link Robot}. This automatically scales the map.
+ * <br><br>
+ * Then to get the next tile you ideally want to aim for, you can use the
+ * {@link #getNextTile(Tile)} method. This returns the ideal next tile to visit depending
+ * on the weights in the map implementation. It weights different items or unexplored parts
+ * of the world with the goal to explore every single part of the world and find every item.
+ * 
+ * @author Simon Grossmann
+ * @since 27 Aug 2019
+ * 
+ * @see Map
+ */
+public final class DistanceScalingMap implements Map {
 	
-	private static final java.util.Map<Class<?>, Integer> ITEM_VALUES = new HashMap<>();
+	/**
+	 * Holds the weights of different item types.
+	 */
+	private static final java.util.Map<Class<? extends Item>, Integer> ITEM_VALUES = new HashMap<>();
 	
+	/**
+	 * The weight of the cookie item.
+	 */
 	private static final int COOKIE_VALUE = 1;
+	
+	/**
+	 * The weight of a key item.
+	 */
 	private static final int KEY_VALUE = 10;
+	
+	/**
+	 * The weight of the charge item.
+	 */
 	private static final int CHARGE_VALUE = 5;
+	
+	/**
+	 * The weight of a star. This is the most important item in the game.
+	 */
 	private static final int STAR_VALUE = 100;
+	
+	/**
+	 * The weight of unexplored parts of the world. This has currently
+	 * by far the highest weight to make sure that the primary goal of the
+	 * robot is to explore the world.
+	 */
 	private static final int UNDEFINED_VALUE = STAR_VALUE * 100;
 	
-	private MapTile[][] mapTiles;
+	/**
+	 * The {@link Tile tiles} known by the map.
+	 */
+	private MapTile[][] tiles;
+	
+	/**
+	 * The {@link Bounds} of the map.
+	 */
 	private Bounds bounds;
 	
+	/**
+	 * Initializes the item weights.
+	 */
 	static {
 		ITEM_VALUES.put(Cookie.class, COOKIE_VALUE);
 		ITEM_VALUES.put(BlueKey.class, KEY_VALUE);
@@ -60,8 +114,11 @@ public class DistanceScalingMap implements Map {
 		ITEM_VALUES.put(Star.class, STAR_VALUE);
 	}
 	
+	/**
+	 * Creates a new {@link DistanceScalingMap}.
+	 */
 	public DistanceScalingMap() {
-		this.mapTiles = new MapTile[0][0];
+		this.tiles = new MapTile[0][0];
 		this.bounds = new Bounds();
 	}
 	
@@ -98,11 +155,18 @@ public class DistanceScalingMap implements Map {
 	@Override
 	public MapTile getTile(final int x, final int y) {
 		if (this.bounds.contains(x, y))
-			return this.mapTiles[x - this.getMinX()][y - this.getMinY()];
+			return this.tiles[x - this.getMinX()][y - this.getMinY()];
 		else
 			return new MapTile(x, y);
 	}
 
+	/**
+	 * Updates the {@link DistanceScalingMap map} with the given {@link Tile tiles}.
+	 * This will scale the map as well to make sure the new tiles fit within
+	 * the maps bounds.
+	 * 
+	 * @param tiles The tiles to update the map with.
+	 */
 	public void updateMap(final List<Tile> tiles) {
 		if (tiles == null || tiles.isEmpty()) {
 			return;
@@ -123,7 +187,7 @@ public class DistanceScalingMap implements Map {
 					newTiles[i][j] = this.getTile(x, j + newBounds.y.min);
 				}
 			}
-			this.mapTiles = newTiles;
+			this.tiles = newTiles;
 			this.bounds = newBounds;
 		}
 		
@@ -132,74 +196,58 @@ public class DistanceScalingMap implements Map {
 		}
 	}
 	
-	public int getValue(final Tile tile) {
-		return this.getValue(tile.getX(), tile.getY());
-	}
-	
-	public int getValue(final int x, final int y) {
-		return this.getTile(x, y).value;
-	}
-	
-	public void setValue(final Tile tile, final int v) {
-		this.setValue(tile.getX(), tile.getY(), v);
-	}
-	
-	public void setValue(int x, int y, int v) {
-		this.getTile(x, y).value = v;
-	}
-	
-	public void clearValues() {
-		for (int i = 0; i < this.mapTiles.length; i++) {
-			for (int j = 0; j < this.mapTiles[i].length; j++) {
-				this.mapTiles[i][j].value = 0;
-			}
-		}
-	}
-	
-	public Tile getNextTile(final Tile beneathTile) {
+	/**
+	 * Computes the optimal next tile to visit.
+	 * <br><br>
+	 * The optimal next tile to visit is computed by counting the actions needed to reach
+	 * a certain item and by the weight of that item.
+	 * 
+	 * @param x The x coordinate of the robot.
+	 * @param y The y coordinate of the robot.
+	 * @return The optimal tile to visit next.
+	 */
+	public Tile getNextTile(final int x, final int y) {
 		this.clearValues();
-		setValue(beneathTile, Integer.MAX_VALUE);
+		this.getTile(x, y).value = Integer.MAX_VALUE;
 		
-		final Queue<Tile> queue = new LinkedList<>();
-		for (int i = 0; i < this.mapTiles.length; i++) {
-			for (int j = 0; j < this.mapTiles[i].length; j++) {
-				final Tile tile = this.mapTiles[i][j];
+		final Queue<MapTile> queue = new LinkedList<>();
+		for (int i = 0; i < this.tiles.length; i++) {
+			for (int j = 0; j < this.tiles[i].length; j++) {
+				final MapTile tile = this.tiles[i][j];
 				if (tile.hasItem() && tile.getItem() instanceof Star) {
-					setValue(tile, STAR_VALUE);
+					tile.value = STAR_VALUE;
 					queue.add(tile);
 				} else if (tile.getMaterial() == Material.UNDEFINED) {
-					setValue(tile, UNDEFINED_VALUE);
+					tile.value = UNDEFINED_VALUE;
 					queue.add(tile);
-				} else if (i == 0 || i == mapTiles.length - 1
-						|| j == 0 || j == mapTiles[i].length - 1) {
-					setValue(tile, UNDEFINED_VALUE);
+				} else if (i == 0 || i == this.tiles.length - 1
+						|| j == 0 || j == this.tiles[i].length - 1) {
+					tile.value = UNDEFINED_VALUE;
 					queue.add(tile);
 				}
 			}
 		}
 		
 		while (!queue.isEmpty()) {
-			final Tile tile = queue.poll();
-			final int value = getValue(tile);
-			if (value == 0)
+			final MapTile tile = queue.poll();
+			if (tile.value == 0)
 				continue;
 			
 			for (final Facing facing : Facing.values()) {
-				final Tile neighbor = getNeighborTile(tile, facing);
+				final MapTile neighbor = getNeighborTile(tile, facing);
 				if (!neighbor.canVisit())
 					continue;
 				
-				final int neighborValue = getValue(neighbor);
-				if (neighborValue == Integer.MAX_VALUE)
+				if (neighbor.value == Integer.MAX_VALUE)
 					continue;
-
-				if (neighborValue == 0) {
-					setValue(neighbor, value + 1);
+	
+				if (neighbor.value == 0) {
+					neighbor.value = tile.value + 1;
 					queue.add(neighbor);
 				} else {
-					final int newValue = Math.min(neighborValue, value + 1);
-					if (neighborValue > newValue) {
-						setValue(tile, newValue);
+					final int newValue = Math.min(neighbor.value, tile.value + 1);
+					if (neighbor.value > newValue) {
+						tile.value = newValue;
 						queue.add(neighbor);
 					}
 				}
@@ -207,11 +255,10 @@ public class DistanceScalingMap implements Map {
 		}
 		
 		final LinkedList<Tile> path = new LinkedList<>();
-		Tile tile = beneathTile;
+		MapTile tile = this.getTile(x, y);
 		do {
-			final Collection<Tile> neighbors = getNeighbors(tile);
-			tile = neighbors.stream().min((t1, t2) -> {
-				return Integer.compare(getValue(t1), getValue(t2));
+			tile = getNeighbors(tile).stream().min((t1, t2) -> {
+				return Integer.compare(t1.value, t2.value);
 			}).orElse(null);
 			if (tile != null) {
 				path.add(tile);
@@ -221,23 +268,30 @@ public class DistanceScalingMap implements Map {
 		return path.isEmpty() ? null : path.poll();
 	}
 	
-	private Tile getNeighborTile(final Tile source, final Facing facing) {
+	private void clearValues() {
+		for (int i = 0; i < this.tiles.length; i++) {
+			for (int j = 0; j < this.tiles[i].length; j++) {
+				this.tiles[i][j].value = 0;
+			}
+		}
+	}
+	
+	private MapTile getNeighborTile(final Tile source, final Facing facing) {
 		return getTile(source.getX() + facing.dx, source.getY() + facing.dy);
 	}
 	
-	private Collection<Tile> getNeighbors(final Tile tile) {
+	private Collection<MapTile> getNeighbors(final MapTile tile) {
 		if (tile == null)
 			return new ArrayList<>();
 		
-		final int value = getValue(tile);
-		if (value == 0)
+		if (tile.value == 0)
 			return new ArrayList<>();
 		
-		final List<Tile> result = new ArrayList<>();
+		final List<MapTile> result = new ArrayList<>();
 		for (final Facing facing : Facing.values()) {
-			final Tile neighbor = getNeighborTile(tile, facing);
-			final int neighborValue = getValue(neighbor);
-			if (neighborValue > 0 && neighborValue < value)
+			final MapTile neighbor = getNeighborTile(tile, facing);
+			final int neighborValue = neighbor.value;
+			if (neighborValue > 0 && neighborValue < tile.value)
 				result.add(neighbor);
 		}
 		
