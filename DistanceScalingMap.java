@@ -48,13 +48,7 @@ public class DistanceScalingMap implements Map {
 	private static final int UNDEFINED_VALUE = STAR_VALUE * 100;
 	
 	private MapTile[][] mapTiles;
-	private int width;
-	private int height;
-	
-	private int minX;
-	private int minY;
-	private int maxX;
-	private int maxY;
+	private Bounds bounds;
 	
 	static {
 		ITEM_VALUES.put(Cookie.class, COOKIE_VALUE);
@@ -67,81 +61,75 @@ public class DistanceScalingMap implements Map {
 	}
 	
 	public DistanceScalingMap() {
-		this.width = 0;
-		this.height = 0;
-		this.minX = Integer.MAX_VALUE;
-		this.maxX = Integer.MIN_VALUE;
-		this.minY = Integer.MAX_VALUE;
-		this.maxY = Integer.MIN_VALUE;
-		this.mapTiles = new MapTile[this.width][this.height];
-		for (int x = 0; x < this.width; x++) {
-			for (int y = 0; y < this.height; y++) {
-				this.mapTiles[x][y] = new MapTile(x, y);
-			}
-		}
-	}
-	
-	public void updateMap(List<Tile> tiles) {
-		if (tiles == null || tiles.isEmpty())
-			return;
-		
-		final int vMinX = tiles.stream().mapToInt(Tile::getX).min().getAsInt();
-		final int vMinY = tiles.stream().mapToInt(Tile::getY).min().getAsInt();
-		final int vMaxX = tiles.stream().mapToInt(Tile::getX).max().getAsInt();
-		final int vMaxY = tiles.stream().mapToInt(Tile::getY).max().getAsInt();
-		
-		if (!this.isWithinMap(vMinX, vMinY) || !this.isWithinMap(vMaxX, vMaxY)) 
-			this.resize(Math.min(this.minX, vMinX), Math.min(this.minY, vMinY), Math.max(this.maxX, vMaxX + 1), Math.max(this.maxY, vMaxY + 1));
-		
-		tiles.forEach(this::updateTile);
-	}
-	
-	private void resize(int nMinX, int nMinY, int nMaxX, int nMaxY) {
-		int nWidth = nMaxX - nMinX;
-		int nHeight = nMaxY - nMinY;
-		MapTile[][] nTiles = new MapTile[nWidth][nHeight];
-		for (int i = 0; i < nWidth; i++) {
-			int x = i + nMinX;
-			for (int j = 0; j < nHeight; j++) {
-				int y = j + nMinY;
-				if (isWithinMap(x, y)) {
-					nTiles[i][j] = this.mapTiles[x - this.minX][y - this.minY];
-				} else
-					nTiles[i][j] = new MapTile(x, y);
-			}
-		}
-		
-		this.mapTiles = nTiles;
-		this.minX = nMinX;
-		this.minY = nMinY;
-		this.maxX = nMaxX;
-		this.maxY = nMaxY;
-		this.width = nWidth;
-		this.height = nHeight;
-	}
-	
-	private void updateTile(final Tile tile) {
-		final int x = tile.getX();
-		final int y = tile.getY();
-		this.mapTiles[x - this.minX][y - this.minY].update(tile);
+		this.mapTiles = new MapTile[0][0];
+		this.bounds = new Bounds();
 	}
 	
 	@Override
+	public int getMinX() {
+		return this.bounds.x.min;
+	}
+
+	@Override
+	public int getMaxX() {
+		return this.bounds.x.max;
+	}
+
+	@Override
+	public int getMinY() {
+		return this.bounds.y.min;
+	}
+
+	@Override
+	public int getMaxY() {
+		return this.bounds.y.max;
+	}
+
+	@Override
 	public int getWidth() {
-		return this.width;
+		return this.bounds.width();
 	}
 
 	@Override
 	public int getHeight() {
-		return this.height;
+		return this.bounds.height();
 	}
 
 	@Override
 	public MapTile getTile(final int x, final int y) {
-		if (this.isWithinMap(x, y))
-			return this.mapTiles[x - this.minX][y - this.minY];
+		if (this.bounds.contains(x, y))
+			return this.mapTiles[x - this.getMinX()][y - this.getMinY()];
 		else
 			return new MapTile(x, y);
+	}
+
+	public void updateMap(final List<Tile> tiles) {
+		if (tiles == null || tiles.isEmpty()) {
+			return;
+		}
+		
+		final int minX = tiles.stream().mapToInt(Tile::getX).min().getAsInt();
+		final int minY = tiles.stream().mapToInt(Tile::getY).min().getAsInt();
+		final int maxX = tiles.stream().mapToInt(Tile::getX).max().getAsInt();
+		final int maxY = tiles.stream().mapToInt(Tile::getY).max().getAsInt();
+		
+		if (!this.bounds.contains(minX, minY) || !this.bounds.contains(maxX, maxY)) {
+			final Bounds newBounds = this.bounds.expanded(minX, minY, maxX, maxY);
+			final MapTile[][] newTiles = new MapTile[newBounds.width()][newBounds.height()];
+			
+			for (int i = 0; i < newBounds.width(); i++) {
+				final int x = i + newBounds.x.min;
+				for (int j = 0; j < newBounds.height(); j++) {
+					newTiles[i][j] = this.getTile(x, j + newBounds.y.min);
+				}
+			}
+			this.mapTiles = newTiles;
+			this.bounds = newBounds;
+		}
+		
+		for (final Tile tile : tiles) {
+			this.getTile(tile.getX(), tile.getY()).update(tile);
+		}
 	}
 	
 	public int getValue(final Tile tile) {
@@ -166,30 +154,6 @@ public class DistanceScalingMap implements Map {
 				this.mapTiles[i][j].value = 0;
 			}
 		}
-	}
-	
-	@Override
-	public int getMinX() {
-		return this.minX;
-	}
-	
-	@Override
-	public int getMaxX() {
-		return this.maxX;
-	}
-	
-	@Override
-	public int getMinY() {
-		return this.minY;
-	}
-	
-	@Override
-	public int getMaxY() {
-		return this.maxY;
-	}
-	
-	public boolean isWithinMap(final int x, final int y) {
-		return x >= this.minX && x < this.maxX && y >= this.minY && y < this.maxY;
 	}
 	
 	public Tile getNextTile(final Tile beneathTile) {
@@ -278,6 +242,141 @@ public class DistanceScalingMap implements Map {
 		}
 		
 		return result;
+	}
+	
+	/**
+	 * Represents the bounds of the {@link DistanceScalingMap map}.
+	 * 
+	 * @author Simon Grossmann
+	 * @since 27 Aug 2019
+	 */
+	private static final class Bounds {
+		
+		/**
+		 * The horizontal range.
+		 */
+		public Range x = new Range();
+		
+		/**
+		 * The vertical range.
+		 */
+		public Range y = new Range();
+		
+		/**
+		 * The width of the bounds.
+		 * 
+		 * @return The width of the bounds.
+		 */
+		public int width() {
+			return this.x.size();
+		}
+		
+		/**
+		 * The height of the bounds.
+		 * 
+		 * @return The height of the bounds.
+		 */
+		public int height() {
+			return this.y.size();
+		}
+		
+		/**
+		 * Checks whether the given coordinates are within the {@link Bounds}.
+		 * 
+		 * @param x The x coordinate to check.
+		 * @param y The y coordinate to check.
+		 * @return <code>True</code> if the coordinates are within the bounds, <code>false</code> otherwise.
+		 * 
+		 * @see Range#contains(int)
+		 */
+		public boolean contains(final int x, final int y) {
+			return this.x.contains(x) && this.y.contains(y);
+		}
+		
+		/**
+		 * Expands the {@link Bounds} so that the given minimum and maximum values
+		 * are within the bounds and returns the new, expanded.
+		 * 
+		 * @param minX The minimum x value.
+		 * @param minY The minimum y value.
+		 * @param maxX The maximum x value.
+		 * @param maxY The maximum y value.
+		 * @return The expanded bounds.
+		 * 
+		 * @see Range#expand(int, int)
+		 */
+		public Bounds expanded(final int minX, final int minY, final int maxX, final int maxY) {
+			final Bounds bounds = new Bounds();
+			bounds.x = this.x.expanded(minX, maxX);
+			bounds.y = this.y.expanded(minY, maxY);
+			return bounds;
+		}
+
+		@Override
+		public String toString() {
+			return "Bounds [x=" + x + ", y=" + y + "]";
+		}
+	}
+	
+	/**
+	 * Represents range of values. This is used for minimum and maximum
+	 * values within the {@link DistanceScalingMap}.
+	 * 
+	 * @author Simon Grossmann
+	 * @since 27 Aug 2019
+	 */
+	private static final class Range {
+		
+		/**
+		 * The minimum of the {@link Range}.
+		 */
+		public int min = Integer.MAX_VALUE;
+		
+		/**
+		 * The maximum of the {@link Range}.
+		 */
+		public int max = Integer.MIN_VALUE;
+		
+		/**
+		 * Returns the size of this {@link Range}.
+		 * The size is equivalent to the size of the closed interval
+		 * containing both, the minimum and maximum values.
+		 * 
+		 * @return The size of this range.
+		 */
+		public int size() {
+			return this.max != Integer.MIN_VALUE ? this.max - this.min + 1 : 0;
+		}
+		
+		/**
+		 * Checks whether the given value is within the {@link Range}.
+		 * 
+		 * @param value The value to check.
+		 * @return <code>True</code> if the value is within the bounds, <code>false</code> otherwise.
+		 */
+		public boolean contains(final int value) {
+			return value >= this.min && value <= this.max;
+		}
+		
+		/**
+		 * Expands this {@link Range} so that the given minimum and maximum
+		 * values are within it's range and returns the new, expanded range.
+		 * 
+		 * @param min The minimum value.
+		 * @param max The maximum value.
+		 * @return The expanded range.
+		 */
+		public Range expanded(final int min, final int max) {
+			final Range range = new Range();
+			range.min = Math.min(this.min, min);
+			range.max = Math.max(this.max, max);
+			return range;
+		}
+
+		@Override
+		public String toString() {
+			return "Range [min=" + min + ", max=" + max + "]";
+		}
 	}
 	
 	/**
