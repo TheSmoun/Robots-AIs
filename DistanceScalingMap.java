@@ -129,7 +129,7 @@ public final class DistanceScalingMap implements Map {
 
 	@Override
 	public int getMaxX() {
-		return this.bounds.x.max;
+		return this.bounds.x.max + 1;
 	}
 
 	@Override
@@ -139,7 +139,7 @@ public final class DistanceScalingMap implements Map {
 
 	@Override
 	public int getMaxY() {
-		return this.bounds.y.max;
+		return this.bounds.y.max + 1;
 	}
 
 	@Override
