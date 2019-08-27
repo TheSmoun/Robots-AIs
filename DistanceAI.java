@@ -25,12 +25,38 @@ import com.github.schnupperstudium.robots.entity.Facing;
 import com.github.schnupperstudium.robots.entity.item.Star;
 import com.github.schnupperstudium.robots.world.Tile;
 
+/**
+ * An AI which has the goal to first explore the whole map and then do different
+ * actions weighted by different metrics. The AI weights tasks by the following list:
+ * <ul>
+ * <li>Explore the map</li>
+ * <li>Pick up all stars</li>
+ * <li>Find and use keys to open doors</li>
+ * <li>Find and use laser charges to destroy blocks</li>
+ * </ul>
+ * To see which task the AI can do next, it uses a {@link DistanceScalingMap} in the
+ * background.
+ * 
+ * @author Simon Grossmann
+ * @since 27 Aug 2019
+ */
 public final class DistanceAI extends AbstractAI {
 
 	private final DistanceScalingMap map;
 	
-	public DistanceAI(RobotsClient client, long gameId, long entityUUID) {
+	/**
+	 * Creates a new {@link DistanceAI}.
+	 * <br>
+	 * This constructor is being invoked implicitly by the framework.
+	 * 
+	 * @param client The {@link RobotsClient client} the AI runs on.
+	 * @param gameId The id of the game the AI participates in.
+	 * @param entityUUID The unique id of this AI.
+	 */
+	public DistanceAI(final RobotsClient client, final long gameId, final long entityUUID) {
 		super(client, gameId, entityUUID);
+		
+		// initialize and open the map view
 		this.map = new DistanceScalingMap();
 		openMapView();
 	}
