@@ -24,6 +24,7 @@ import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.stream.Collectors;
 
 import com.github.schnupperstudium.robots.client.AbstractAI;
 import com.github.schnupperstudium.robots.entity.Facing;
@@ -36,7 +37,10 @@ import com.github.schnupperstudium.robots.entity.item.LaserCharge;
 import com.github.schnupperstudium.robots.entity.item.RedKey;
 import com.github.schnupperstudium.robots.entity.item.Star;
 import com.github.schnupperstudium.robots.entity.item.YellowKey;
+import com.github.schnupperstudium.robots.gui.overlay.MapOverlays.MapLocationOverlay;
+import com.github.schnupperstudium.robots.gui.overlay.MapRenderAddition;
 import com.github.schnupperstudium.robots.gui.overlay.TileRenderAddition;
+import com.github.schnupperstudium.robots.world.Location;
 import com.github.schnupperstudium.robots.world.Map;
 import com.github.schnupperstudium.robots.world.Material;
 import com.github.schnupperstudium.robots.world.Tile;
@@ -70,6 +74,11 @@ public final class DistanceScalingMap implements Map {
 	 * Whether to render the debug overlay.
 	 */
 	private static final boolean RENDER_DEBUG_OVERLAY = false;
+	
+	/**
+	 * Whether to render the location overlay.
+	 */
+	private static final boolean RENDER_LOCATION_OVERLAY = true;
 	
 	/**
 	 * Neighbor facings.
@@ -131,6 +140,16 @@ public final class DistanceScalingMap implements Map {
 	private final AbstractAI ai;
 	
 	/**
+	 * The list of locations of the optimal path. Used in debugging.
+	 */
+	private final List<Location> overlayLocations;
+	
+	/**
+	 * The list of map render additions. Used in debugging.
+	 */
+	private final List<MapRenderAddition> mapRenderAdditions;
+	
+	/**
 	 * Initializes the item weights.
 	 */
 	static {
@@ -150,6 +169,22 @@ public final class DistanceScalingMap implements Map {
 		this.tiles = new MapTile[0][0];
 		this.bounds = new Bounds();
 		this.ai = ai;
+		this.overlayLocations = new ArrayList<>();
+		this.mapRenderAdditions = new ArrayList<>();
+		
+		if (RENDER_LOCATION_OVERLAY) {
+			this.mapRenderAdditions.add(new MapLocationOverlay(this.overlayLocations, Color.RED, 0.5));
+		}
+	}
+	
+	@Override
+	public boolean hasMapRenderAdditions() {
+		return RENDER_LOCATION_OVERLAY;
+	}
+	
+	@Override
+	public List<MapRenderAddition> getMapRenderAdditions() {
+		return this.mapRenderAdditions;
 	}
 	
 	@Override
@@ -299,6 +334,12 @@ public final class DistanceScalingMap implements Map {
 				path.add(tile);
 			}
 		} while (tile != null || path.isEmpty());
+		
+		if (RENDER_LOCATION_OVERLAY) {
+			this.overlayLocations.clear();
+			this.overlayLocations.addAll(path.stream().map(t -> new Location(t.getX(), t.getY()))
+					.collect(Collectors.toList()));
+		}
 		
 		return path.isEmpty() ? null : path.poll();
 	}
