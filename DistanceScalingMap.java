@@ -25,6 +25,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 
+import com.github.schnupperstudium.robots.client.AbstractAI;
 import com.github.schnupperstudium.robots.entity.Facing;
 import com.github.schnupperstudium.robots.entity.Item;
 import com.github.schnupperstudium.robots.entity.Robot;
@@ -35,9 +36,15 @@ import com.github.schnupperstudium.robots.entity.item.LaserCharge;
 import com.github.schnupperstudium.robots.entity.item.RedKey;
 import com.github.schnupperstudium.robots.entity.item.Star;
 import com.github.schnupperstudium.robots.entity.item.YellowKey;
+import com.github.schnupperstudium.robots.gui.overlay.TileRenderAddition;
 import com.github.schnupperstudium.robots.world.Map;
 import com.github.schnupperstudium.robots.world.Material;
 import com.github.schnupperstudium.robots.world.Tile;
+import com.github.schnupperstudium.robots.world.World;
+
+import javafx.scene.canvas.GraphicsContext;
+import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 
 /**
  * A scalable {@link Map} implementation that only stores all known {@link Tile tiles}.
@@ -60,6 +67,18 @@ import com.github.schnupperstudium.robots.world.Tile;
 public final class DistanceScalingMap implements Map {
 	
 	/**
+	 * Whether to render the debug overlay.
+	 */
+	private static final boolean RENDER_DEBUG_OVERLAY = false;
+	
+	/**
+	 * Neighbor facings.
+	 */
+	private static final Facing[] NEIGHBOR_FACINGS = {
+			Facing.NORTH, Facing.EAST, Facing.SOUTH, Facing.WEST
+	};
+	
+	/**
 	 * Holds the weights of different item types.
 	 */
 	private static final java.util.Map<Class<? extends Item>, Integer> ITEM_VALUES = new HashMap<>();
@@ -67,7 +86,7 @@ public final class DistanceScalingMap implements Map {
 	/**
 	 * The weight of the cookie item.
 	 */
-	private static final int COOKIE_VALUE = 1;
+	private static final int COOKIE_VALUE = 100;
 	
 	/**
 	 * The weight of a key item.
@@ -77,12 +96,17 @@ public final class DistanceScalingMap implements Map {
 	/**
 	 * The weight of the charge item.
 	 */
-	private static final int CHARGE_VALUE = 5;
+	private static final int CHARGE_VALUE = 50;
+	
+	/**
+	 * The weight of a boulder.
+	 */
+	private static final int BOULDER_VALUE = 50;
 	
 	/**
 	 * The weight of a star. This is the most important item in the game.
 	 */
-	private static final int STAR_VALUE = 100;
+	private static final int STAR_VALUE = 1;
 	
 	/**
 	 * The weight of unexplored parts of the world. This has currently
@@ -102,6 +126,11 @@ public final class DistanceScalingMap implements Map {
 	private Bounds bounds;
 	
 	/**
+	 * The {@link AbstractAI AI}, which uses this {@link DistanceScalingMap map}.
+	 */
+	private final AbstractAI ai;
+	
+	/**
 	 * Initializes the item weights.
 	 */
 	static {
@@ -117,9 +146,10 @@ public final class DistanceScalingMap implements Map {
 	/**
 	 * Creates a new {@link DistanceScalingMap}.
 	 */
-	public DistanceScalingMap() {
+	public DistanceScalingMap(final AbstractAI ai) {
 		this.tiles = new MapTile[0][0];
 		this.bounds = new Bounds();
+		this.ai = ai;
 	}
 	
 	@Override
@@ -217,10 +247,13 @@ public final class DistanceScalingMap implements Map {
 				if (tile.hasItem()) {
 					tile.value = ITEM_VALUES.get(tile.getItem().getClass());
 					queue.add(tile);
-				} else if (tile.getMaterial() == Material.UNDEFINED) {
-					tile.value = UNDEFINED_VALUE;
+				} else if (tile.hasVisitor()
+						&& tile.getVisitor().getName().contains("Boulder")
+						&& this.ai.getInventory().hasItem(LaserCharge.ITEM_NAME)) {
+					tile.value = BOULDER_VALUE;
 					queue.add(tile);
-				} else if (i == 0 || i == this.tiles.length - 1
+				} else if (tile.getMaterial() == Material.UNDEFINED
+						|| i == 0 || i == this.tiles.length - 1
 						|| j == 0 || j == this.tiles[i].length - 1) {
 					tile.value = UNDEFINED_VALUE;
 					queue.add(tile);
@@ -233,9 +266,11 @@ public final class DistanceScalingMap implements Map {
 			if (tile.value == 0)
 				continue;
 			
-			for (final Facing facing : Facing.values()) {
+			for (final Facing facing : NEIGHBOR_FACINGS) {
 				final MapTile neighbor = this.getNeighborTile(tile, facing);
-				if (!neighbor.canVisit())
+				if (!neighbor.canVisit()
+						|| neighbor.getMaterial() == Material.UNDEFINED
+						|| neighbor.getMaterial() == Material.VOID)
 					continue;
 				
 				if (neighbor.value == Integer.MAX_VALUE)
@@ -247,7 +282,7 @@ public final class DistanceScalingMap implements Map {
 				} else {
 					final int newValue = Math.min(neighbor.value, tile.value + 1);
 					if (neighbor.value > newValue) {
-						tile.value = newValue;
+						neighbor.value = newValue;
 						queue.add(neighbor);
 					}
 				}
@@ -288,7 +323,7 @@ public final class DistanceScalingMap implements Map {
 			return new ArrayList<>();
 		
 		final List<MapTile> result = new ArrayList<>();
-		for (final Facing facing : Facing.values()) {
+		for (final Facing facing : NEIGHBOR_FACINGS) {
 			final MapTile neighbor = this.getNeighborTile(tile, facing);
 			final int neighborValue = neighbor.value;
 			if (neighborValue > 0 && neighborValue < tile.value)
@@ -459,6 +494,19 @@ public final class DistanceScalingMap implements Map {
 		public MapTile(final int x, final int y) {
 			super(null, x, y, Material.UNDEFINED);
 			this.value = UNDEFINED_VALUE;
+			if (RENDER_DEBUG_OVERLAY) {
+				this.addTileRenderAddition(new TileRenderAddition() {
+					
+					@Override
+					public void renderTileAddition(final Tile tile, final GraphicsContext gc,
+							final double renderX, final double renderY, final double tileSize) {
+						final Paint oldPaint = gc.getFill();
+						gc.setFill(Color.BLACK);
+						gc.fillText("" + value, renderX, renderY + tileSize, tileSize);
+						gc.setFill(oldPaint);
+					}
+				});
+			}
 		}
 		
 		/**
@@ -483,7 +531,7 @@ public final class DistanceScalingMap implements Map {
 
 		@Override
 		public String toString() {
-			return "MapTile [value=" + this.value + "x=" + this.getX() + ", y=" + this.getY() +
+			return "MapTile [value=" + this.value + ", x=" + this.getX() + ", y=" + this.getY() +
 					", material=" + this.getMaterial() + ", visitor=" + this.getVisitor() +
 					", item=" + this.getItem() + "]";
 		}

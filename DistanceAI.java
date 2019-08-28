@@ -22,16 +22,17 @@ import com.github.schnupperstudium.robots.ai.action.EntityAction;
 import com.github.schnupperstudium.robots.client.AbstractAI;
 import com.github.schnupperstudium.robots.client.RobotsClient;
 import com.github.schnupperstudium.robots.entity.Facing;
+import com.github.schnupperstudium.robots.entity.item.LaserCharge;
 import com.github.schnupperstudium.robots.world.Tile;
 
 /**
- * An AI which has the goal to first explore the whole map and then do different
+ * An AI which has the goal to first find all stars in the map and then do different
  * actions weighted by different metrics. The AI weights tasks by the following list:
  * <ul>
- * <li>Explore the map</li>
  * <li>Pick up all stars</li>
  * <li>Find and use keys to open doors</li>
  * <li>Find and use laser charges to destroy blocks</li>
+ * <li>Explore the map</li>
  * </ul>
  * To see which task the AI can do next, it uses a {@link DistanceScalingMap} in the
  * background.
@@ -56,7 +57,7 @@ public final class DistanceAI extends AbstractAI {
 		super(client, gameId, entityUUID);
 		
 		// initialize and open the map view
-		this.map = new DistanceScalingMap();
+		this.map = new DistanceScalingMap(this);
 		this.openMapView();
 	}
 	
@@ -90,7 +91,11 @@ public final class DistanceAI extends AbstractAI {
 		}
 		
 		if (target.getX() != this.getX() || target.getY() != this.getY()) {
-			return EntityAction.moveForward();
+			if (target.hasVisitor() && target.getVisitor().getName().contains("Boulder")) {
+				return EntityAction.useItem(this.getInventory().findItem(LaserCharge.ITEM_NAME));
+			} else {
+				return EntityAction.moveForward();
+			}
 		}
 		
 		return EntityAction.noAction();
