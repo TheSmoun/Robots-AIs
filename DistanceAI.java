@@ -91,8 +91,11 @@ public final class DistanceAI extends AbstractAI {
 		}
 		
 		if (target.getX() != this.getX() || target.getY() != this.getY()) {
-			if (target.hasVisitor() && target.getVisitor().getName().contains("Boulder")) {
+			if (this.map.canShootBoulder(target)) {
 				return EntityAction.useItem(this.getInventory().findItem(LaserCharge.ITEM_NAME));
+			} else if (this.map.hasKeyForGate(target)) {
+				return EntityAction.useItem(this.getInventory()
+						.findItem(DistanceScalingMap.GATE_KEYS.get(target.getMaterial())));
 			} else {
 				return EntityAction.moveForward();
 			}

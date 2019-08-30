@@ -71,6 +71,11 @@ import javafx.scene.paint.Paint;
 public final class DistanceScalingMap implements Map {
 	
 	/**
+	 * Holds the keys needed for the different gates.
+	 */
+	protected static final java.util.Map<Material, String> GATE_KEYS = new HashMap<>();
+	
+	/**
 	 * Whether to render the debug overlay.
 	 */
 	private static final boolean RENDER_DEBUG_OVERLAY = false;
@@ -101,6 +106,11 @@ public final class DistanceScalingMap implements Map {
 	 * The weight of a key item.
 	 */
 	private static final int KEY_VALUE = 10;
+	
+	/**
+	 * The weight of a closed gate of any color.
+	 */
+	private static final int GATE_VALUE = 10;
 	
 	/**
 	 * The weight of the charge item.
@@ -150,7 +160,7 @@ public final class DistanceScalingMap implements Map {
 	private final List<MapRenderAddition> mapRenderAdditions;
 	
 	/**
-	 * Initializes the item weights.
+	 * Initializes the item weights and gate keys.
 	 */
 	static {
 		ITEM_VALUES.put(Cookie.class, COOKIE_VALUE);
@@ -160,6 +170,11 @@ public final class DistanceScalingMap implements Map {
 		ITEM_VALUES.put(YellowKey.class, KEY_VALUE);
 		ITEM_VALUES.put(LaserCharge.class, CHARGE_VALUE);
 		ITEM_VALUES.put(Star.class, STAR_VALUE);
+		
+		GATE_KEYS.put(Material.GATE_CLOSED_BLUE, BlueKey.ITEM_NAME);
+		GATE_KEYS.put(Material.GATE_CLOSED_GREEN, GreenKey.ITEM_NAME);
+		GATE_KEYS.put(Material.GATE_CLOSED_RED, RedKey.ITEM_NAME);
+		GATE_KEYS.put(Material.GATE_CLOSED_YELLOW, YellowKey.ITEM_NAME);
 	}
 	
 	/**
@@ -282,10 +297,11 @@ public final class DistanceScalingMap implements Map {
 				if (tile.hasItem()) {
 					tile.value = ITEM_VALUES.get(tile.getItem().getClass());
 					queue.add(tile);
-				} else if (tile.hasVisitor()
-						&& tile.getVisitor().getName().contains("Boulder")
-						&& this.ai.getInventory().hasItem(LaserCharge.ITEM_NAME)) {
+				} else if (this.canShootBoulder(tile)) {
 					tile.value = BOULDER_VALUE;
+					queue.add(tile);
+				} else if (this.hasKeyForGate(tile)) {
+					tile.value = GATE_VALUE;
 					queue.add(tile);
 				} else if (tile.getMaterial() == Material.UNDEFINED
 						|| i == 0 || i == this.tiles.length - 1
@@ -342,6 +358,16 @@ public final class DistanceScalingMap implements Map {
 		}
 		
 		return path.isEmpty() ? null : path.poll();
+	}
+	
+	protected boolean hasKeyForGate(final Tile tile) {
+		return GATE_KEYS.containsKey(tile.getMaterial())
+				&& this.ai.getInventory().hasItem(GATE_KEYS.get(tile.getMaterial()));
+	}
+	
+	protected boolean canShootBoulder(final Tile tile) {
+		return tile.hasVisitor() && tile.getVisitor().getName().contains("Boulder")
+				&& this.ai.getInventory().hasItem(LaserCharge.ITEM_NAME);
 	}
 	
 	private void clearValues() {
