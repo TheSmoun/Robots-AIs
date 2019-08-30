@@ -93,6 +93,13 @@ public final class DistanceScalingMap implements Map {
 	};
 	
 	/**
+	 * Holds all materials that represent a tile where the robot gets
+	 * teleported and the number of times such a teleported has been used.
+	 * It only makes sense to use such a teleporter twice - one time per direction.
+	 */
+	private static final java.util.Map<Material, Integer> TELEPORTER_MATERIALS = new HashMap<>();
+	
+	/**
 	 * Holds the weights of different item types.
 	 */
 	private static final java.util.Map<Class<? extends Item>, Integer> ITEM_VALUES = new HashMap<>();
@@ -135,6 +142,12 @@ public final class DistanceScalingMap implements Map {
 	private static final int UNDEFINED_VALUE = STAR_VALUE * 100;
 	
 	/**
+	 * The weight of a teleport tile. If the robot did explore everything
+	 * in an area, it should go to a teleport tile. 
+	 */
+	private static final int TELEPORTER_VALUE = UNDEFINED_VALUE * 100;
+	
+	/**
 	 * The {@link Tile tiles} known by the map.
 	 */
 	private MapTile[][] tiles;
@@ -160,9 +173,14 @@ public final class DistanceScalingMap implements Map {
 	private final List<MapRenderAddition> mapRenderAdditions;
 	
 	/**
-	 * Initializes the item weights and gate keys.
+	 * Initializes the teleport materials, item weights and gate keys.
 	 */
 	static {
+		TELEPORTER_MATERIALS.put(Material.TELEPORTER_BLUE, 0);
+		TELEPORTER_MATERIALS.put(Material.TELEPORTER_GREEN, 0);
+		TELEPORTER_MATERIALS.put(Material.TELEPORTER_RED, 0);
+		TELEPORTER_MATERIALS.put(Material.TELEPORTER_YELLOW, 0);
+		
 		ITEM_VALUES.put(Cookie.class, COOKIE_VALUE);
 		ITEM_VALUES.put(BlueKey.class, KEY_VALUE);
 		ITEM_VALUES.put(GreenKey.class, KEY_VALUE);
@@ -308,6 +326,9 @@ public final class DistanceScalingMap implements Map {
 						|| j == 0 || j == this.tiles[i].length - 1) {
 					tile.value = UNDEFINED_VALUE;
 					queue.add(tile);
+				} else if (this.canUseTeleporter(tile)) {
+					tile.value = TELEPORTER_VALUE;
+					queue.add(tile);
 				}
 			}
 		}
@@ -368,6 +389,16 @@ public final class DistanceScalingMap implements Map {
 	protected boolean canShootBoulder(final Tile tile) {
 		return tile.hasVisitor() && tile.getVisitor().getName().contains("Boulder")
 				&& this.ai.getInventory().hasItem(LaserCharge.ITEM_NAME);
+	}
+	
+	protected boolean canUseTeleporter(final Tile tile) {
+		return TELEPORTER_MATERIALS.containsKey(tile.getMaterial())
+				&& TELEPORTER_MATERIALS.get(tile.getMaterial()) < 2;
+	}
+	
+	protected void useTeleporter(final Tile source, final Tile target) {
+		TELEPORTER_MATERIALS.put(target.getMaterial(), TELEPORTER_MATERIALS.get(target.getMaterial()) + 1);
+		this.getTile(source.getX(), source.getY()).setVisitor(null);
 	}
 	
 	private void clearValues() {

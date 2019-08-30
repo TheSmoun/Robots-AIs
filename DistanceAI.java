@@ -33,6 +33,7 @@ import com.github.schnupperstudium.robots.world.Tile;
  * <li>Find and use keys to open doors</li>
  * <li>Find and use laser charges to destroy blocks</li>
  * <li>Explore the map</li>
+ * <li>Use teleporters to reach other areas of the map</li>
  * </ul>
  * To see which task the AI can do next, it uses a {@link DistanceScalingMap} in the
  * background.
@@ -97,6 +98,10 @@ public final class DistanceAI extends AbstractAI {
 				return EntityAction.useItem(this.getInventory()
 						.findItem(DistanceScalingMap.GATE_KEYS.get(target.getMaterial())));
 			} else {
+				if (this.map.canUseTeleporter(target)) {
+					this.map.useTeleporter(this.getBeneathTile(), target);
+				}
+				
 				return EntityAction.moveForward();
 			}
 		}
