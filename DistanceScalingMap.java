@@ -29,6 +29,7 @@ import java.util.stream.Collectors;
 import com.github.schnupperstudium.robots.client.AbstractAI;
 import com.github.schnupperstudium.robots.entity.Facing;
 import com.github.schnupperstudium.robots.entity.Item;
+import com.github.schnupperstudium.robots.entity.LivingEntity;
 import com.github.schnupperstudium.robots.entity.Robot;
 import com.github.schnupperstudium.robots.entity.item.BlueKey;
 import com.github.schnupperstudium.robots.entity.item.Cookie;
@@ -37,6 +38,9 @@ import com.github.schnupperstudium.robots.entity.item.LaserCharge;
 import com.github.schnupperstudium.robots.entity.item.RedKey;
 import com.github.schnupperstudium.robots.entity.item.Star;
 import com.github.schnupperstudium.robots.entity.item.YellowKey;
+import com.github.schnupperstudium.robots.entity.scenery.LargeBoulder;
+import com.github.schnupperstudium.robots.entity.scenery.MediumBoulder;
+import com.github.schnupperstudium.robots.entity.scenery.SmallBoulder;
 import com.github.schnupperstudium.robots.gui.overlay.MapOverlays.MapLocationOverlay;
 import com.github.schnupperstudium.robots.gui.overlay.MapRenderAddition;
 import com.github.schnupperstudium.robots.gui.overlay.TileRenderAddition;
@@ -103,6 +107,11 @@ public final class DistanceScalingMap implements Map {
 	 * Holds the weights of different item types.
 	 */
 	private static final java.util.Map<Class<? extends Item>, Integer> ITEM_VALUES = new HashMap<>();
+	
+	/**
+	 * Holds the amount of laser charges needed to destroy a boulder.
+	 */
+	private static final java.util.Map<Class<? extends LivingEntity>, Integer> CHARGES_NEEDED = new HashMap<>();
 	
 	/**
 	 * The weight of the cookie item.
@@ -173,7 +182,7 @@ public final class DistanceScalingMap implements Map {
 	private final List<MapRenderAddition> mapRenderAdditions;
 	
 	/**
-	 * Initializes the teleport materials, item weights and gate keys.
+	 * Initializes the teleport materials, item weights, gate keys and charges needed.
 	 */
 	static {
 		TELEPORTER_MATERIALS.put(Material.TELEPORTER_BLUE, 0);
@@ -193,6 +202,10 @@ public final class DistanceScalingMap implements Map {
 		GATE_KEYS.put(Material.GATE_CLOSED_GREEN, GreenKey.ITEM_NAME);
 		GATE_KEYS.put(Material.GATE_CLOSED_RED, RedKey.ITEM_NAME);
 		GATE_KEYS.put(Material.GATE_CLOSED_YELLOW, YellowKey.ITEM_NAME);
+		
+		CHARGES_NEEDED.put(LargeBoulder.class, 3);
+		CHARGES_NEEDED.put(MediumBoulder.class, 2);
+		CHARGES_NEEDED.put(SmallBoulder.class, 1);
 	}
 	
 	/**
@@ -387,8 +400,12 @@ public final class DistanceScalingMap implements Map {
 	}
 	
 	protected boolean canShootBoulder(final Tile tile) {
-		return tile.hasVisitor() && tile.getVisitor().getName().contains("Boulder")
-				&& this.ai.getInventory().hasItem(LaserCharge.ITEM_NAME);
+		if (!tile.hasVisitor() || !CHARGES_NEEDED.containsKey(tile.getVisitor().getClass()))
+			return false;
+		
+		final int charges = (int) this.ai.getInventory().getItems().stream()
+				.filter(i -> i.getName().equals(LaserCharge.ITEM_NAME)).count();
+		return charges >= CHARGES_NEEDED.get(tile.getVisitor().getClass());
 	}
 	
 	protected boolean canUseTeleporter(final Tile tile) {
